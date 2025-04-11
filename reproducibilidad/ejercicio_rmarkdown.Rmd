@@ -1,0 +1,326 @@
+---
+title: "Análisis de Precipitación y Temperatura"
+author: "Marina Pachón Mena"
+date: "2025-02-24"
+output:
+  html_document: default
+bibliography: references/ecoinformatica.bib
+csl: references/nature.csl
+---
+
+## Introducción
+
+En este documento reproducible, se presenta un análisis detallado de los **datos climáticos** de diversas especies del género *Pinus* y sus respectivas localizaciones. El conjunto de datos que se utiliza proviene de una serie de archivos los cuales contienen información sobre las precipitaciones y las temperaturas medias anuales de diferentes especies en distintas elevaciones.
+
+Las **especies** en las que se ha centrado nuestro análisis son las siguientes:
+
+- *Pinus halepensis*
+- *Pinus nigra*
+- *Pinus pinaster*
+- *Pinus sylvestris*
+
+Este análisis forma parte de un proyecto más amplio cuyo propósito es estudiar cómo las variables climáticas influyen en las especies vegetales y sus capacidades de adaptación a distintas condiciones ambientales. 
+
+## Objetivos
+
+El objetivo principal de este análisis es calcular y visualizar los valores **promedios** y **desviaciones estándar** de la **precipitación** y **temperatura** anual por especie y por localización para responder a las actividades planteadas en los modulos de *Introducción a la programación* [@perez-luque_introduccion_2025] y *Reproducibilidad* [@perez-luque_practica_2025].
+
+## Metodología 
+
+Para el análisis se han empleado técnicas estadísticas vistas previamente en la asignatura [ecoinformática](https://ecoinfugr.github.io/ecoinformatica/) para obtener una visión general de cómo las especies y sus ubicaciones geográficas afectan las variables climáticas a lo largo del tiempo.
+
+En la primera parte del análisis, se realizó una *transformación* de los datos utilizando funciones en R [@crawley_r_2013], como `map()` para aplicar una operación a cada archivo y `bind_rows()` para combinar los resultados en un único **dataframe** homogéneo. Posteriormente, se calcularon las medias anuales de la temperatura y la precipitación, segmentadas por especie y localización.
+
+Para la representación de las **precipitaciones promedio anuales** por especie y por ubicación, se han generado un
+*gráfico de barras* al cual se les ha incluído las **desviaciones estándar** previamente calculadas para ilustrar la variabilidad.
+
+La siguiente parte del documento incluirá gráficos generados a partir de los datos procesados, como *gráficos de barras* que representan las **precipitaciones anuales promedio** por especie y por ubicación, junto con las **desviaciones estándar** para ilustrar la variabilidad.
+
+## Resultados
+
+Para lograr cada uno de nuestros objetivos se han abordado diferentes apartados:
+
+### **1**- Creación de un bucle que lea los archivos climáticos y los guarde en una lista, pero añadiendo el nombre de cada sitio (obtenido del nombre del archivo).
+
+A continuación, se presenta el código utilizado para leer los archivos climáticos de cada especie y localización, guardarlos en una lista y añadir el nombre del sitio a los datos.
+
+```{r eval=TRUE, echo=TRUE, message=FALSE, results='hide'}
+
+# Carga de paquetes necesarios
+library(tidyverse)
+
+# Definimos la ruta de la carpeta donde están los archivos
+ruta_clima <- "data/clima/"
+
+# Obtenemos la lista de archivos .csv que tenemos en nuestra carpeta clima
+archivos_clima <- list.files(path = ruta_clima, pattern = "*.csv", full.names = TRUE)
+
+# Queremos darle nombres a los distintos .csv y que aparezcan como nombres de la lista
+
+nombres_sitios <- archivos_clima %>%
+  basename() %>%
+  str_remove("clima_") %>%
+  str_remove(".csv")
+
+# Función para leer los archivos
+leer_archivo_clima <- function(archivo) {
+  datos <- read_csv(archivo)  # Cargamos el archivo y lo guardamos en datos
+  datos  # Devolvemos el dataframe
+}
+
+# Aplicamos la función a todos los archivos para guardarlos en una lista
+lista_datos_clima <- map(archivos_clima, leer_archivo_clima)
+
+# Asignamos los nombres a la lista
+names(lista_datos_clima) <- nombres_sitios
+
+# Verificamos los nombres de los elementos de la lista
+names(lista_datos_clima)
+
+# Verificamos que la lista tenga las listas cargadas correctamente
+str(lista_datos_clima[[1]])
+```
+
+Como verificamos, nuestra lista tiene una estructura conforme a nuestros objetivos:
+
+```{r}
+# Verificamos que la lista tenga las listas cargadas correctamente
+str(lista_datos_clima[[1]])
+```
+
+### **2**- Generación de un dataframe homogéneo a partir de la lista generada.
+
+Sí, hemos podido generar un dataframe homogéneo a partir de la lista generada:
+
+```{r, echo=TRUE, eval=TRUE, results='hide', message=FALSE}
+
+# Carga de paquetes necesarios
+library(tidyverse)
+
+# Ejecutamos el script anterior para cargar la lista de datos
+source("scripts/bucle_guardado.R")
+
+# Unimos todos los dataframes de la lista en uno solo con esta función
+df_clima <- bind_rows(lista_datos_clima)
+
+# Separamos la columna sp_elev en dos nuevas columnas: sp y altitud:
+
+# Podría hacer este paso usando filtros con la función case_when y str_detect
+# pero la función separate me parece más limpia y rápida en este caso.
+
+df_clima <- df_clima %>%
+  separate(col = sp_elev, into = c("sp", "elevation"), sep = "_", remove = FALSE)
+
+# Guardamos el dataframe final en un archivo .csv.
+write_csv(df_clima, "data/df_clima.csv")
+
+```
+
+Para ello, utilizamos la función bind_rows(), que nos permite combinar los 12 dataframes individuales (uno por cada archivo de datos climáticos) en un **único dataframe** con **7.440** filas y **8** columnas.
+
+El dataframe mantiene la siguiente estructura con las siguientes variables:
+
+- *sp_elev*: Identifica la especie y el gradiente altitudinal de cada parcela.
+- *sp*: Especie a la que pertenece la parcela (halepensis, nigra, pinaster, sylvestris).
+- *elevation*: Gradiente altitudinal (low, medium, high).
+- *year* y *month*: Indican el año y el mes de la observación.
+- *monthly_pet*: Evapotranspiración mensual.
+- *monthly_tmed*: Temperatura media mensual.
+- *monthly_prec*: Precipitación mensual.
+
+```{r}
+head(df_clima)
+```
+
+
+**Ha sido posible crear esta dataframe porque todos los archivos compartían la misma estructura de columnas y tipos de datos.**
+
+Finalmente, hemos añadido **dos nuevas columnas** (*sp* y *elevation*) separando la información contenida en *sp_elev*, para faciliar los análisis posteriores.
+
+### **3**- Cálculo de los valores promedio de temperatura media anual por sitio; y por especie.
+
+La temperatura media anual se calcula para tres niveles: por ubicación, por especie, y por especie y ubicación.
+
+```{r, echo=TRUE, eval=TRUE, results='hide', message=FALSE}
+
+# Carga de paquetes necesarios
+library(tidyverse)
+
+# Cargamos el dataframe generado anteriormente
+df_clima <- read_csv("data/df_clima.csv")
+
+# Calculamos la temperatura media anual por ubicación
+temp_media_elev <- df_clima %>%
+  group_by(elevation, year) %>%  
+  summarise(temp_media_anual = mean(monthly_tmed, na.rm = TRUE)) %>%
+  ungroup()
+
+# Calculamos la temperatura media anual por especie
+temp_media_sp <- df_clima %>%
+  group_by(sp, year) %>%  
+  summarise(temp_media_anual = mean(monthly_tmed, na.rm = TRUE)) %>%
+  ungroup()
+
+# Calculamos la temperatura emdia anual por especie y ubicación
+temp_media_sp_elev <- df_clima %>%
+  group_by(sp, elevation, year) %>%  
+  summarise(temp_media_anual = mean(monthly_tmed, na.rm = TRUE)) %>%
+  ungroup()
+
+# guardado de dataframes con los distintos análisis
+write_csv(temp_media_elev, "data/temp_media_elev.csv")
+write_csv(temp_media_sp, "data/temp_media_especie.csv")
+write_csv(temp_media_sp_elev, "data/temp_media_sp_elev.csv")
+
+```
+
+En resumen, los resultados muestran:
+
+- **Temperatura media por ubicación**: Calcula la media de la temperatura anual para cada localización y año. Útil para analizar cómo varía la temperatura entre diferentes ubicaciones.
+
+- **Temperatura media por especie**: Calcula la temperatura media anual para cada especie en todos las ubicaciones, lo cual ayuda a entender cómo cada especie experimenta las condiciones climáticas.
+
+- **Temperatura media por especie y ubicación**: Combina ambos niveles anteriores, analizando la temperatura para cada especie en cada ubicación. Con esto obtenemos un análisis más detallado, ya que algunas especies pueden adaptarse de manera diferente a las condiciones de cada ubicación.
+
+### **4**- Cálcula de los valores promedio (y la desviación estándar) de la precitación acumulada anual por sitio; y por especie. Y, representación con un gráfico de barras con los promedios de la precipitación y desviaciones estándar.
+
+Para responder a esta pregunta hemos hecho un primer código centrándonos en calcular los valores promedio y la desviación estándar de la precitación anual acumulada por ubicación; y por especie.
+
+```{r, echo=TRUE, eval=TRUE, results='hide', message=FALSE}
+
+# Carga de paquetes necesarios
+library(tidyverse)
+
+# Cargamos el dataframe generado anteriormente
+df_clima <- read_csv("data/df_clima.csv")
+
+# Calculamos la precipitación anual total por especie y elevación
+precip_anual <- df_clima %>%
+  group_by(sp, elevation, year) %>% 
+  summarise(precip_total_anual = sum(monthly_prec, na.rm = TRUE)) %>%
+  ungroup()
+
+# Calculamos de la media y desviación estándar para cada especie
+precip_media_sd_sp <- precip_anual %>%
+  group_by(sp) %>%  
+  summarise(
+    precip_media = mean(precip_total_anual, na.rm = TRUE),
+    precip_sd = sd(precip_total_anual, na.rm = TRUE)
+  )
+
+# Calculamos de la media y desviación estándar para cada ubicación
+precip_media_sd_elev <- precip_anual %>%
+  group_by(elevation) %>%
+  summarise(
+    precip_media = mean(precip_total_anual, na.rm = TRUE),
+    precip_sd = sd(precip_total_anual, na.rm = TRUE)
+  )
+
+# Calculamos la media y la desviación estándar de la precipitación anual a través de los años
+precip_media_sd <- precip_anual %>%
+  group_by(sp, elevation) %>%  
+  summarise(
+    precip_media = mean(precip_total_anual, na.rm = TRUE),
+    precip_sd = sd(precip_total_anual, na.rm = TRUE)  
+  ) %>%
+  ungroup()
+
+# guardado de dataframes con los distintos análisis
+write_csv(precip_media_sd, "data/precip_media_sd.csv")
+write_csv(precip_anual, "data/precip_anual.csv")
+write_csv(precip_media_sd_sp, "data/precip_media_sd_sp.csv")
+write_csv(precip_media_sd_elev, "data/precip_media_sd_elev.csv")
+
+```
+
+El motivo por el cual se realizan los cálculos para especies y ubicación es obtener una **visión completa** de cómo las condiciones climáticas (en este caso, la precipitación) afectan a las especies en distintas localizaciones y cómo se comportan en general. Esto también permite ver si ciertas especies se adaptan mejor a condiciones específicas de precipitación o si ocurre lo mismo en todas las ubicaciones.
+
+Al final, para la **representación de los promedios de la precipitación** y sus **desviaciones estándar** usamos el dataframe generado anteriormente en el que se incluye la precipitación anual por especie y ubicación:
+
+```{r, echo=TRUE, eval=TRUE, results='hide', message=FALSE}
+
+# Carga de paquetes necesarios
+library(tidyverse)
+library(ggplot2)
+
+# Cargamos los dataframe generados anteriormente
+precip_media_sd <- read_csv("data/precip_media_sd.csv")
+
+# Gráfico de barras con los promedios de la precipitación y las desviaciones estándar
+precip_sp_elev_sd <- ggplot(precip_media_sd, aes(x = interaction(elevation), y = precip_media, fill = sp)) +
+  geom_bar(stat = "identity", position = "dodge") + 
+  geom_errorbar(
+    aes(ymin = precip_media - precip_sd, ymax = precip_media + precip_sd), 
+    width = 0.2, 
+    position = position_dodge(0.9)  
+  ) +
+  labs(
+    title = "Precipitación acumulada anual promedio por especie y localización",
+    x = "Localización",
+    y = "Precipitación acumulada anual promedio (mm)",
+    fill = "Especies"
+  ) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+# Guardamos los gráficos
+ggsave("graphics/grafico_precip_sp_elev_sd.png", plot = precip_sp_elev_sd, width = 8, height = 6, dpi = 300)
+
+```
+
+Por lo tanto, obtenemos este **gráfico de barras**:
+
+```{r, echo=FALSE}
+precip_sp_elev_sd 
+```
+
+## Conclusiones
+
+A lo largo de este trabajo, hemos logrado responder a todas las preguntas planteadas en los módulos de la asignatura de *Ecoinformática*. Aplicando herramientas de análisis de datos, estadísticas y visualización, hemos procesado y representado la información de la carpeta *clima*. Esto nos ha permitido extraer recursos para interpretar patrones ecológicos relevantes, consolidando así los conocimientos adquiridos en el curso.
+
+![](https://secretariageneral.ugr.es/sites/webugr/secretariageneral/public/inline-files/UGR-MARCA-02-color.svg)
+
+## Extra: Visualizaión de Observaciones de ***Tetrax tetrax*** de iNaturalist
+
+En esta sección, se ha realizado un análisis adicional utilizando datos obtenidos de la plataforma **GBIF**[@GBIF] sobre ***Tetrax tetrax***. Tras descargar todas las observaciones disponibles, se ha filtrado el conjunto de datos para quedarnos únicamente con las observaciones de **iNaturalist**. Esta información incluye las coordenadas geográficas de cada observación, las cuales hemos utilizado para crear un mapa interactivo.
+
+```{r, echo=TRUE, eval=TRUE, results='hide', message=FALSE, warning=FALSE}
+# Cargamos los paquetes necesarios
+library(tidyverse)
+library(leaflet)
+library(lubridate)
+
+tetrax <- read_tsv("data/gbif/tetrax_gbif.csv")
+
+# Filtramos solo las observaciones de iNaturalist que son las que nos vamos a quedar
+tetrax_inat <- tetrax %>%
+  filter(
+    institutionCode == "iNaturalist",  # Filtra solo las observaciones de iNaturalist
+    !is.na(decimalLatitude) & !is.na(decimalLongitude),  # Eliminamos NA (que los hay)
+  )
+
+# Convertimos esto a formato fecha
+as_date(tetrax_inat$eventDate)
+
+# Crear el mapa interactivo
+mapa <- leaflet(tetrax_inat) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    lng = ~decimalLongitude,
+    lat = ~decimalLatitude,
+    radius = 4,
+    color = "red", 
+    fill = TRUE, 
+    fillColor = "yellow", 
+    fillOpacity = 0.5,
+    popup = ~paste("Fecha:", eventDate)
+  )
+```
+
+```{r, echo=FALSE}
+mapa
+```
+
+En el mapa, se han mostrado puntos correspondientes a cada observación de *Tetrax tetrax*, representados por círculos de color rojo. Además, al hacer clic sobre cualquier punto del mapa, aparece un *popup* que muestra la **fecha** de la observación registrada.
+
+## Referencias
