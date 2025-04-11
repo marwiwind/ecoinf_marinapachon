@@ -1,5 +1,5 @@
 ---
-title: "Análisis de Precipitación y Temperatura"
+title: "Actividad 3. GitHub y RMarkdown"
 author: "Marina Pachón Mena"
 date: "2025-02-24"
 output:
@@ -7,6 +7,9 @@ output:
 bibliography: references/ecoinformatica.bib
 csl: references/nature.csl
 ---
+## Antedecentes
+
+Archivo creado para subirlo a github y que se vea en la web de la asignatura de Ecoinformática.
 
 ## Introducción
 
